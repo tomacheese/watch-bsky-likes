@@ -24,5 +24,11 @@ COPY src src
 RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --frozen-lockfile --offline
 
 ENV NODE_ENV=production
+ENV CONFIG_PATH=/data/config.json
 
-ENTRYPOINT [ "pnpm", "start" ]
+COPY entrypoint.sh .
+RUN chmod +x entrypoint.sh
+
+VOLUME [ "/data" ]
+
+ENTRYPOINT [ "/app/entrypoint.sh" ]
