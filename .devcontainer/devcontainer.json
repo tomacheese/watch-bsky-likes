@@ -1,0 +1,50 @@
+{
+  "name": "watch-bsky-likes",
+  "image": "mcr.microsoft.com/devcontainers/typescript-node:0-18",
+  "remoteUser": "node",
+  "otherPortsAttributes": {
+    "onAutoForward": "silent"
+  },
+  "postCreateCommand": "sudo npm uninstall -g pnpm yarn && sudo chown node node_modules .pnpm-store && sudo corepack enable && corepack install &&  install",
+  "waitFor": "postStartCommand",
+  "mounts": [
+    "source=${localWorkspaceFolderBasename}-node_modules,target=${containerWorkspaceFolder}/node_modules,type=volume",
+    "source=pnpm-store,target=${containerWorkspaceFolder}/.pnpm-store,type=volume"
+  ],
+  "customizations": {
+    "settings": {
+      "git.branchProtection": [
+        "main",
+        "master"
+      ],
+      "[typescript]": {
+        "editor.codeActionsOnSave": {
+          "source.organizeImports": false
+        },
+        "editor.defaultFormatter": "esbenp.prettier-vscode"
+      },
+      "editor.formatOnSave": true
+    },
+    "vscode": {
+      "settings": {
+        "git.branchProtection": [
+          "main",
+          "master"
+        ],
+        "[typescript]": {
+          "editor.codeActionsOnSave": {
+            "source.organizeImports": false
+          },
+          "editor.defaultFormatter": "esbenp.prettier-vscode"
+        },
+        "editor.formatOnSave": true
+      },
+      "extensions": [
+        "esbenp.prettier-vscode"
+      ]
+    },
+    "extensions": [
+      "esbenp.prettier-vscode"
+    ]
+  }
+}
