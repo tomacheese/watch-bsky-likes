@@ -36,6 +36,17 @@ async function getUserLikes(actor: string) {
   return response.data
 }
 
+async function getPostDetail(uris: string) {
+  const baseUrl = 'https://public.api.bsky.app/xrpc/app.bsky.feed.getPosts'
+  const response = await axios.get<LikeResponse>(baseUrl, {
+    params: {
+      uris,
+    },
+  })
+
+  return response.data
+}
+
 function getPostUrl(uri: string) {
   const regex = /at:\/\/(.+)\/app\.bsky\.feed\.post\/(.+)/
 
