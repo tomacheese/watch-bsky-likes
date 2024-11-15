@@ -7,7 +7,7 @@
     "url": "https://github.com/tomacheese/watch-bsky-likes/issues"
   },
   "devDependencies": {
-    "@book000/eslint-config": "1.7.89",
+    "@book000/eslint-config": "1.7.91",
     "@book000/node-utils": "1.13.342",
     "@types/node": "22.9.0",
     "axios": "1.7.7",
@@ -25,7 +25,7 @@
   "homepage": "https://github.com/tomacheese/watch-bsky-likes",
   "license": "MIT",
   "main": "dist/main.js",
-  "packageManager": "pnpm@9.13.0",
+  "packageManager": "pnpm@9.13.1",
   "private": true,
   "repository": {
     "type": "git",
