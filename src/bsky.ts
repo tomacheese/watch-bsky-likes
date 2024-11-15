@@ -176,7 +176,7 @@ class BlueskyPostCache {
       fs.mkdirSync(dir, { recursive: true })
     }
 
-    fs.writeFileSync(filename, JSON.stringify(post))
+    await fs.promises.writeFile(filename, JSON.stringify(post))
   }
 
   private static getCachePath(uri: string) {
