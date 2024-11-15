@@ -158,7 +158,7 @@ class BlueskyPostCache {
     }
 
     try {
-      const data = fs.readFileSync(filename, 'utf8')
+      const data = await fs.promises.readFile(filename, 'utf8')
       return JSON.parse(data) as Post
     } catch {
       return undefined
