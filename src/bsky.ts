@@ -158,7 +158,7 @@ class BlueskyPostCache {
     }
 
     try {
-      const data = await fs.promises.readFile(filename, 'utf8')
+      const data = fs.readFileSync(filename, 'utf8')
       return JSON.parse(data) as Post
     } catch {
       return undefined
@@ -176,7 +176,7 @@ class BlueskyPostCache {
       fs.mkdirSync(dir, { recursive: true })
     }
 
-    await fs.promises.writeFile(filename, JSON.stringify(post))
+    fs.writeFileSync(filename, JSON.stringify(post))
   }
 
   private static getCachePath(uri: string) {
