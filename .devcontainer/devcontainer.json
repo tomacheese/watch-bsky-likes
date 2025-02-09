@@ -5,7 +5,7 @@
   "otherPortsAttributes": {
     "onAutoForward": "silent"
   },
-  "postCreateCommand": "sudo npm uninstall -g pnpm yarn && sudo chown node node_modules .pnpm-store && sudo npm install -g corepack@latest && sudo corepack enable && corepack install && pnpm install",
+  "postCreateCommand": "sudo npm uninstall -g pnpm yarn && sudo git config --system --add safe.directory ${containerWorkspaceFolder} && sudo chown node node_modules .pnpm-store && sudo npm install -g corepack@latest && sudo corepack enable && corepack install && pnpm install && pnpm approve-builds",
   "waitFor": "postStartCommand",
   "mounts": [
     "source=${localWorkspaceFolderBasename}-node_modules,target=${containerWorkspaceFolder}/node_modules,type=volume",
@@ -13,10 +13,7 @@
   ],
   "customizations": {
     "settings": {
-      "git.branchProtection": [
-        "main",
-        "master"
-      ],
+      "git.branchProtection": ["main", "master"],
       "[typescript]": {
         "editor.codeActionsOnSave": {
           "source.organizeImports": false
@@ -27,24 +24,17 @@
     },
     "vscode": {
       "settings": {
-        "git.branchProtection": [
-          "main",
-          "master"
-        ],
+        "git.branchProtection": ["main", "master"],
         "[typescript]": {
           "editor.codeActionsOnSave": {
-            "source.organizeImports": false
+            "source.organizeImports": "never"
           },
           "editor.defaultFormatter": "esbenp.prettier-vscode"
         },
         "editor.formatOnSave": true
       },
-      "extensions": [
-        "esbenp.prettier-vscode"
-      ]
+      "extensions": ["esbenp.prettier-vscode"]
     },
-    "extensions": [
-      "esbenp.prettier-vscode"
-    ]
+    "extensions": ["esbenp.prettier-vscode"]
   }
 }
