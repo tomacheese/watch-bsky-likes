@@ -26,6 +26,8 @@ pnpm install
 
 ## 設定
 
+### Discord 通知設定
+
 `data/config.json` を作成し、Discord の通知設定を行います。
 
 ```json
@@ -46,6 +48,17 @@ pnpm install
   }
 }
 ```
+
+### 監視対象ユーザーの設定
+
+監視対象の Bluesky ユーザーは、現在ソースコード内にハードコードされています。
+監視対象を変更するには、`src/main.ts` の以下の箇所を編集してください:
+
+```typescript
+const results = await Bluesky.getUserLikes('hiratake.dev')
+```
+
+`'hiratake.dev'` の部分を、監視したい Bluesky ユーザーのハンドル名に変更してください。
 
 ## 使用方法
 
