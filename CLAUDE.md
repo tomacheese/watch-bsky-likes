@@ -39,7 +39,7 @@ Git Worktree を使用する場合は、以下の構成に従ってください�
 - 日本語と英数字の間には半角スペースを挿入する。
 - エラーメッセージに絵文字が含まれている場合は、新しいメッセージでも絵文字を使用する。
 - TypeScript の `skipLibCheck` による回避は禁止。
-- 関数やインターフェースには日本語で docstring を記載する。
+- 関数やインターフェースには原則として日本語で docstring を記載するが、インターフェースのプロパティや外部 API 名など英語が自然な箇所は英語を許可する。
 
 ## 相談ルール
 - **Codex CLI**: 実装レビュー、局所設計、整合性確認。
@@ -88,7 +88,7 @@ pnpm generate-schema
 - テストは現状未実装だが、必要に応じて `vitest` 等の導入を検討する。
 
 ## ドキュメント更新ルール
-- 設定変更時は `src/config.ts` の `IConfiguration` インターフェースを更新し、`pnpm generate-schema` を実行する。
+- 設定変更時は `src/config.ts` の設定用インターフェース（`package.json` の `generate-schema` スクリプトで参照されているもの。現状は `ConfigInterface`）を更新し、`pnpm generate-schema` を実行する。`IConfiguration` という名称との不一致があるため、作業前にどのインターフェースがスキーマ生成に使用されているかを必ず確認すること。
 
 ## 作業チェックリスト
 

@@ -32,8 +32,8 @@
 - **命名規則**:
   - クラス名: PascalCase
   - メソッド・変数名: camelCase
-- **TypeScript**: `skipLibCheck` を有効にして型チェックを回避しないこと。
-- **ドキュメント**: 関数やインターフェースには JSDoc (docstring) を日本語で記載する。
+- **TypeScript**: TypeScript の `skipLibCheck` を有効にしないこと。
+- **ドキュメント**: 関数やクラスには JSDoc (docstring) を原則として日本語で記載する（設定項目やインターフェースのプロパティなど、英語の方が自然な場合は英語を使用してよい）。
 - **エラーメッセージ**: 英語で記載し、先頭に適切な絵文字を付ける（既存コードに倣う）。
 
 ## 開発コマンド
@@ -67,7 +67,7 @@ pnpm generate-schema
 
 ## ドキュメント更新
 - 機能変更時は `README.md` を更新する。
-- 設定項目の変更時は `src/config.ts` を更新し、`pnpm generate-schema` を実行する。
+- 設定項目の変更時は `src/config.ts` の `IConfiguration` インターフェースを更新し、その後 `pnpm generate-schema` を実行する（インターフェース名を変更した場合は、`package.json` の `generate-schema` スクリプトが参照するインターフェース名もあわせて更新すること）。
 
 ## リポジトリ固有
 - 監視対象のユーザーは `src/main.ts` にハードコードされている（将来的に設定ファイルへ移行する可能性がある）。
