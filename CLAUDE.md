@@ -88,7 +88,7 @@ pnpm generate-schema
 - テストは現状未実装だが、必要に応じて `vitest` 等の導入を検討する。
 
 ## ドキュメント更新ルール
-- 設定変更時は `src/config.ts` の設定用インターフェース（`package.json` の `generate-schema` スクリプトで参照されているもの。現状は `ConfigInterface`）を更新し、`pnpm generate-schema` を実行する。`IConfiguration` という名称との不一致があるため、作業前にどのインターフェースがスキーマ生成に使用されているかを必ず確認すること。
+- 設定変更時は `src/config.ts` の `IConfiguration` インターフェースを更新し、`pnpm generate-schema` を実行する。
 
 ## 作業チェックリスト
 
