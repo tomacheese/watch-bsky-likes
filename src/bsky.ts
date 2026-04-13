@@ -1,4 +1,3 @@
-import axios from 'axios'
 import fs from 'node:fs'
 
 interface Like {
@@ -196,19 +195,22 @@ class BlueskyPostCache {
 }
 
 export class Bluesky {
-  public static async getUserLikes(actor: string) {
+  public static async getUserLikes(actor: string): Promise<LikeResponse> {
     const baseUrl = 'https://bsky.social/xrpc/com.atproto.repo.listRecords'
-    const response = await axios.get<LikeResponse>(baseUrl, {
-      params: {
-        collection: 'app.bsky.feed.like',
-        limit: 100,
-        reverse: false,
-        cursor: '',
-        repo: actor,
-      },
-    })
-
-    return response.data
+    const url = new URL(baseUrl)
+    url.search = new URLSearchParams({
+      collection: 'app.bsky.feed.like',
+      limit: '100',
+      reverse: 'false',
+      cursor: '',
+      repo: actor,
+    }).toString()
+    const res = await fetch(url.toString())
+    if (!res.ok)
+      throw new Error(
+        `❌ Failed to fetch likes: ${res.status} ${res.statusText}`
+      )
+    return (await res.json()) as LikeResponse
   }
 
   public static async getPosts(uris: string[], useCache = true) {
@@ -255,15 +257,21 @@ export class Bluesky {
     return posts
   }
 
-  private static async getPostsFromApi(uris: string[]) {
+  private static async getPostsFromApi(uris: string[]): Promise<PostsResponse> {
     const baseUrl = 'https://public.api.bsky.app/xrpc/app.bsky.feed.getPosts'
-    const response = await axios.get<PostsResponse>(baseUrl, {
-      params: {
-        uris,
-      },
-    })
+    const url = new URL(baseUrl)
+    const params = new URLSearchParams()
+    for (const uri of uris) {
+      params.append('uris', uri)
+    }
 
-    return response.data
+    url.search = params.toString()
+    const res = await fetch(url.toString())
+    if (!res.ok)
+      throw new Error(
+        `❌ Failed to fetch posts: ${res.status} ${res.statusText}`
+      )
+    return (await res.json()) as PostsResponse
   }
 
   public static getPostUrl(uri: string) {
