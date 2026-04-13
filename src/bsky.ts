@@ -1,4 +1,5 @@
-import axios from 'axios'
+// axios 削除
+
 import fs from 'node:fs'
 
 interface Like {
@@ -196,19 +197,24 @@ class BlueskyPostCache {
 }
 
 export class Bluesky {
-  public static async getUserLikes(actor: string) {
-    const baseUrl = 'https://bsky.social/xrpc/com.atproto.repo.listRecords'
-    const response = await axios.get<LikeResponse>(baseUrl, {
-      params: {
-        collection: 'app.bsky.feed.like',
-        limit: 100,
-        reverse: false,
-        cursor: '',
-        repo: actor,
-      },
-    })
+  // fetch 利用のためグローバル fetch 型定義
+  // Node.js v18+ ではグローバル fetch が利用可能
 
-    return response.data
+  public static async getUserLikes(actor: string) {
+    // axios → fetch 移行済み
+
+    const baseUrl = 'https://bsky.social/xrpc/com.atproto.repo.listRecords'
+    const url = new URL(baseUrl)
+    url.search = new URLSearchParams({
+      collection: 'app.bsky.feed.like',
+      limit: '100',
+      reverse: 'false',
+      cursor: '',
+      repo: actor,
+    }).toString()
+    const res = await fetch(url.toString())
+    if (!res.ok) throw new Error(`Failed to fetch likes: ${res.status} ${res.statusText}`)
+    return await res.json()
   }
 
   public static async getPosts(uris: string[], useCache = true) {
@@ -256,14 +262,17 @@ export class Bluesky {
   }
 
   private static async getPostsFromApi(uris: string[]) {
-    const baseUrl = 'https://public.api.bsky.app/xrpc/app.bsky.feed.getPosts'
-    const response = await axios.get<PostsResponse>(baseUrl, {
-      params: {
-        uris,
-      },
-    })
+    // axios → fetch 移行済み
 
-    return response.data
+    const baseUrl = 'https://public.api.bsky.app/xrpc/app.bsky.feed.getPosts'
+    const url = new URL(baseUrl)
+    url.search = new URLSearchParams({
+      uris: uris.join(','),
+    }).toString()
+    const res = await fetch(url.toString())
+    if (!res.ok)
+      throw new Error(`Failed to fetch posts: ${res.status} ${res.statusText}`)
+    return await res.json()
   }
 
   public static getPostUrl(uri: string) {

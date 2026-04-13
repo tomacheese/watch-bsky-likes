@@ -7,16 +7,15 @@
     "url": "https://github.com/tomacheese/watch-bsky-likes/issues"
   },
   "devDependencies": {
-    "@book000/eslint-config": "1.14.9",
+    "@book000/eslint-config": "1.14.3",
     "@book000/node-utils": "1.24.115",
     "@types/node": "24.12.2",
-    "axios": "1.15.0",
     "eslint": "10.2.0",
     "eslint-config-standard": "17.1.0",
     "eslint-plugin-import": "2.32.0",
     "eslint-plugin-n": "17.24.0",
     "eslint-plugin-promise": "7.2.1",
-    "prettier": "3.8.2",
+    "prettier": "3.8.1",
     "run-z": "2.1.0",
     "tsx": "4.21.0",
     "typescript": "5.9.3",
