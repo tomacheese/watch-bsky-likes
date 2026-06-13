@@ -18,7 +18,7 @@
     "prettier": "3.8.4",
     "run-z": "2.1.0",
     "tsx": "4.22.4",
-    "typescript": "5.9.3",
+    "typescript": "6.0.3",
     "typescript-json-schema": "0.67.4"
   },
   "homepage": "https://github.com/tomacheese/watch-bsky-likes",
