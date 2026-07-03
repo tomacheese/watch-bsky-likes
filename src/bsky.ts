@@ -18,6 +18,40 @@ interface LikeResponse {
   cursor: string
 }
 
+// app.bsky.embed.images: 画像埋め込み
+interface ImagesEmbed {
+  $type: 'app.bsky.embed.images'
+  images: {
+    alt: string
+    aspectRatio: {
+      height: number
+      width: number
+    }
+    image: {
+      $type: string
+      ref: {
+        $link: string
+      }
+      mimeType: string
+      size: number
+    }
+  }[]
+}
+
+// app.bsky.embed.images 以外の既知の embed 種別。
+// これらの内部構造（external.uri 等）は現状どのコードからも参照されていないため、
+// 判別に必要な $type のみを型に残す。実際にその embed の中身を扱う実装が
+// 追加されたタイミングで、該当の型を個別に定義する。
+interface NonImagesEmbed {
+  $type:
+    | 'app.bsky.embed.external'
+    | 'app.bsky.embed.record'
+    | 'app.bsky.embed.recordWithMedia'
+    | 'app.bsky.embed.video'
+}
+
+type Embed = ImagesEmbed | NonImagesEmbed
+
 interface Post {
   uri: string
   cid: string
@@ -43,24 +77,7 @@ interface Post {
   record: {
     $type: string
     createdAt: string
-    embed?: {
-      $type: string
-      images: {
-        alt: string
-        aspectRatio: {
-          height: number
-          width: number
-        }
-        image: {
-          $type: string
-          ref: {
-            $link: string
-          }
-          mimeType: string
-          size: number
-        }
-      }[]
-    }
+    embed?: Embed
     langs: string[]
     text: string
     facets?: {
@@ -121,23 +138,7 @@ interface Post {
 // 画像付きの投稿であることが保証される型
 type ImagePost = Post & {
   record: Post['record'] & {
-    embed: {
-      images: {
-        alt: string
-        aspectRatio: {
-          height: number
-          width: number
-        }
-        image: {
-          $type: string
-          ref: {
-            $link: string
-          }
-          mimeType: string
-          size: number
-        }
-      }[]
-    }
+    embed: ImagesEmbed
   }
 }
 
@@ -290,10 +291,15 @@ export class Bluesky {
   }
 
   public static isImagePost(post: Post): post is ImagePost {
-    if (!post.record.embed) {
+    const embed = post.record.embed
+    if (!embed) {
       return false
     }
 
-    return post.record.embed.images.length > 0
+    if (embed.$type !== 'app.bsky.embed.images') {
+      return false
+    }
+
+    return embed.images.length > 0
   }
 }
