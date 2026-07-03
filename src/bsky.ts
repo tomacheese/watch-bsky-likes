@@ -38,7 +38,7 @@ interface ImagesEmbed {
   }[]
 }
 
-// app.bsky.embed.images 以外の既知の embed 種別（external / record / recordWithMedia / video）。
+// app.bsky.embed.images 以外の既知の embed 種別。
 // これらの内部構造（external.uri 等）は現状どのコードからも参照されていないため、
 // 判別に必要な $type のみを型に残す。実際にその embed の中身を扱う実装が
 // 追加されたタイミングで、該当の型を個別に定義する。
