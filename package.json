@@ -41,6 +41,6 @@
     "lint:tsc": "tsc",
     "preinstall": "npx only-allow pnpm",
     "start": "tsx ./src/main.ts",
-    "generate-schema": "typescript-json-schema --required src/config.ts IConfiguration -o schema/Configuration.json"
+    "generate-schema": "typescript-json-schema --required src/config.ts IConfig -o schema/Config.json"
   }
 }

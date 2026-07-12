@@ -152,7 +152,7 @@ class BlueskyPostCache {
   }
 
   public static getPost(uri: string): Post | undefined {
-    const filename = BlueskyPostCache.getCachePath(uri)
+    const filename = this.getCachePath(uri)
     if (!filename) {
       return
     }
@@ -166,14 +166,14 @@ class BlueskyPostCache {
   }
 
   public static setPost(uri: string, post: Post) {
-    const filename = BlueskyPostCache.getCachePath(uri)
+    const filename = this.getCachePath(uri)
     if (!filename) {
       return
     }
 
-    const dir = filename.split('/').slice(0, -1).join('/')
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true })
+    const directory = filename.split('/').slice(0, -1).join('/')
+    if (!fs.existsSync(directory)) {
+      fs.mkdirSync(directory, { recursive: true })
     }
 
     fs.writeFileSync(filename, JSON.stringify(post))
@@ -191,7 +191,7 @@ class BlueskyPostCache {
     const actor = match[1]
     const cid = match[2]
 
-    return `${BlueskyPostCache.PATH.POST_CACHE_PATH}/${actor}/${cid}.json`
+    return `${this.PATH.POST_CACHE_PATH}/${actor}/${cid}.json`
   }
 }
 
@@ -206,21 +206,21 @@ export class Bluesky {
       cursor: '',
       repo: actor,
     }).toString()
-    const res = await fetch(url.toString())
-    if (!res.ok)
+    const response = await fetch(url.href)
+    if (!response.ok)
       throw new Error(
-        `❌ Failed to fetch likes: ${res.status} ${res.statusText}`
+        `❌ Failed to fetch likes: ${response.status} ${response.statusText}`
       )
-    return (await res.json()) as LikeResponse
+    return (await response.json()) as LikeResponse
   }
 
-  public static async getPosts(uris: string[], useCache = true) {
+  public static async getPosts(uris: string[], isCacheUsed = true) {
     const posts: Post[] = []
     const uncachedUris: string[] = []
 
     for (const uri of uris) {
       let post: Post | undefined
-      if (useCache) {
+      if (isCacheUsed) {
         post = BlueskyPostCache.getPost(uri)
       }
 
@@ -235,18 +235,19 @@ export class Bluesky {
     if (uncachedUris.length > 0) {
       // 20件ずつ取得
       // eslint-disable-next-line unicorn/no-array-reduce
-      const chunkedUris = uncachedUris.reduce<string[][]>((acc, uri, index) => {
-        const chunkIndex = Math.floor(index / 20)
-        if (!acc[chunkIndex]) {
-          acc[chunkIndex] = []
-        }
+      const chunkedUris = uncachedUris.reduce<string[][]>(
+        (accumulator, uri, index) => {
+          const chunkIndex = Math.floor(index / 20)
+          accumulator[chunkIndex] ??= []
 
-        acc[chunkIndex].push(uri)
-        return acc
-      }, [])
+          accumulator[chunkIndex].push(uri)
+          return accumulator
+        },
+        []
+      )
 
       for (const chunk of chunkedUris) {
-        const response = await Bluesky.getPostsFromApi(chunk)
+        const response = await this.getPostsFromApi(chunk)
         posts.push(...response.posts)
 
         for (const post of response.posts) {
@@ -261,18 +262,18 @@ export class Bluesky {
   private static async getPostsFromApi(uris: string[]): Promise<PostsResponse> {
     const baseUrl = 'https://public.api.bsky.app/xrpc/app.bsky.feed.getPosts'
     const url = new URL(baseUrl)
-    const params = new URLSearchParams()
+    const parameters = new URLSearchParams()
     for (const uri of uris) {
-      params.append('uris', uri)
+      parameters.append('uris', uri)
     }
 
-    url.search = params.toString()
-    const res = await fetch(url.toString())
-    if (!res.ok)
+    url.search = parameters.toString()
+    const response = await fetch(url.href)
+    if (!response.ok)
       throw new Error(
-        `❌ Failed to fetch posts: ${res.status} ${res.statusText}`
+        `❌ Failed to fetch posts: ${response.status} ${response.statusText}`
       )
-    return (await res.json()) as PostsResponse
+    return (await response.json()) as PostsResponse
   }
 
   public static getPostUrl(uri: string) {

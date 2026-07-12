@@ -1,12 +1,12 @@
 import { Notified } from './notified'
-import { Configuration } from './config'
+import { Config } from './config'
 import { Discord, Logger } from '@book000/node-utils'
 import { Bluesky } from './bsky'
 
 async function main() {
   const logger = Logger.configure('main')
 
-  const config = new Configuration('data/config.json')
+  const config = new Config('data/config.json')
   config.load()
   if (!config.validate()) {
     logger.error('❌ Configuration is invalid')

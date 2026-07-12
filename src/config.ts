@@ -1,12 +1,12 @@
 import { ConfigFramework, DiscordOptions } from '@book000/node-utils'
 
-export interface IConfiguration {
+export interface IConfig {
   /** Discord webhook URL or bot token */
   discord: DiscordOptions
 }
 
-export class Configuration extends ConfigFramework<IConfiguration> {
-  protected validates(): Record<string, (config: IConfiguration) => boolean> {
+export class Config extends ConfigFramework<IConfig> {
+  protected validates(): Record<string, (config: IConfig) => boolean> {
     return {
       'discord is required': (options) => 'discord' in options,
       'discord is object': (options) => typeof options.discord === 'object',
