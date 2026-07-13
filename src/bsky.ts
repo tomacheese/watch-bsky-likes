@@ -206,7 +206,7 @@ export class Bluesky {
       cursor: '',
       repo: actor,
     }).toString()
-    const res = await fetch(url.toString())
+    const res = await fetch(url.href)
     if (!res.ok)
       throw new Error(
         `❌ Failed to fetch likes: ${res.status} ${res.statusText}`
@@ -234,12 +234,9 @@ export class Bluesky {
 
     if (uncachedUris.length > 0) {
       // 20件ずつ取得
-      // eslint-disable-next-line unicorn/no-array-reduce
       const chunkedUris = uncachedUris.reduce<string[][]>((acc, uri, index) => {
         const chunkIndex = Math.floor(index / 20)
-        if (!acc[chunkIndex]) {
-          acc[chunkIndex] = []
-        }
+        acc[chunkIndex] ??= []
 
         acc[chunkIndex].push(uri)
         return acc
@@ -267,7 +264,7 @@ export class Bluesky {
     }
 
     url.search = params.toString()
-    const res = await fetch(url.toString())
+    const res = await fetch(url.href)
     if (!res.ok)
       throw new Error(
         `❌ Failed to fetch posts: ${res.status} ${res.statusText}`
