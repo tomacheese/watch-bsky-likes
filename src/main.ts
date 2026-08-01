@@ -62,5 +62,13 @@ async function main() {
 }
 
 ;(async () => {
-  await main()
+  try {
+    await main()
+  } catch (error) {
+    // fetch のネットワークエラーなどで main() が reject した場合、
+    // 未処理のまま unhandledRejection として落ちるのを防ぐ
+    const logger = Logger.configure('main')
+    logger.error('❌ Unhandled error in main', error as Error)
+    process.exitCode = 1
+  }
 })()
