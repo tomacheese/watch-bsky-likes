@@ -195,6 +195,43 @@ class BlueskyPostCache {
   }
 }
 
+/**
+ * 外部 API への fetch を実行するラッパー。
+ * 失敗時は operation 名・sanitized endpoint（host + pathname のみ。query に含まれ得る token 等の secret は含めない）・HTTP status または Node fetch の error.cause / cause.code を、エラーメッセージと `cause` に保持したまま throw する。
+ *
+ * @param operation ログ・エラーメッセージ用の操作名（例: getUserLikes）
+ * @param url 呼び出し先の URL
+ */
+async function fetchExternal(operation: string, url: URL): Promise<Response> {
+  const endpoint = `${url.origin}${url.pathname}`
+
+  let res: Response
+  try {
+    res = await fetch(url.href)
+  } catch (error) {
+    const cause = error instanceof Error ? error.cause : undefined
+    const causeCode =
+      cause && typeof cause === 'object' && 'code' in cause
+        ? String(cause.code)
+        : undefined
+    throw new Error(
+      `❌ Failed to fetch (${operation}): ${endpoint}${
+        causeCode ? ` (cause: ${causeCode})` : ''
+      }`,
+      // stack trace を保持するため、元のエラーを cause として連鎖させる
+      { cause: error }
+    )
+  }
+
+  if (!res.ok) {
+    throw new Error(
+      `❌ Failed to fetch (${operation}): ${endpoint} returned ${res.status} ${res.statusText}`
+    )
+  }
+
+  return res
+}
+
 export class Bluesky {
   public static async getUserLikes(actor: string): Promise<LikeResponse> {
     const baseUrl = 'https://bsky.social/xrpc/com.atproto.repo.listRecords'
@@ -206,11 +243,7 @@ export class Bluesky {
       cursor: '',
       repo: actor,
     }).toString()
-    const res = await fetch(url.href)
-    if (!res.ok)
-      throw new Error(
-        `❌ Failed to fetch likes: ${res.status} ${res.statusText}`
-      )
+    const res = await fetchExternal('getUserLikes', url)
     return (await res.json()) as LikeResponse
   }
 
@@ -264,11 +297,7 @@ export class Bluesky {
     }
 
     url.search = params.toString()
-    const res = await fetch(url.href)
-    if (!res.ok)
-      throw new Error(
-        `❌ Failed to fetch posts: ${res.status} ${res.statusText}`
-      )
+    const res = await fetchExternal('getPostsFromApi', url)
     return (await res.json()) as PostsResponse
   }
 
