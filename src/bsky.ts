@@ -195,8 +195,78 @@ class BlueskyPostCache {
   }
 }
 
+// 一時的な障害とみなして retry する Node fetch の error.cause.code
+const TRANSIENT_CAUSE_CODES = new Set([
+  'ETIMEDOUT',
+  'ECONNRESET',
+  'ECONNREFUSED',
+  'EAI_AGAIN',
+  'EPIPE',
+])
+
+// 一時的な障害とみなして retry する HTTP status（429: rate limit, 5xx: サーバー側の一時的な問題）
+const TRANSIENT_STATUS_CODES = new Set([429, 500, 502, 503, 504])
+
+// 初回 + retry を含めた最大試行回数
+const MAX_ATTEMPTS = 3
+const RETRY_BASE_DELAY_MS = 500
+
+/**
+ * 指定ミリ秒だけ待機する（retry の backoff 用）。
+ *
+ * @param ms 待機時間（ミリ秒）
+ */
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+/**
+ * retry 間隔を算出する（exponential backoff + jitter）。
+ * 同時多発的な retry が API に一斉に再送されるのを避けるため、指数的な待機時間にランダムな揺らぎを加える。
+ *
+ * @param attempt 何回目の試行後か（1-indexed）
+ */
+function backoffDelayMs(attempt: number): number {
+  const exponential = RETRY_BASE_DELAY_MS * 2 ** (attempt - 1)
+  const jitter = Math.random() * RETRY_BASE_DELAY_MS
+  return exponential + jitter
+}
+
+/**
+ * HTTP 429 の Retry-After をミリ秒へ変換する。
+ * 秒数形式と HTTP-date 形式を扱い、解釈できない場合は undefined を返す。
+ *
+ * @param value Retry-After ヘッダー値
+ */
+function parseRetryAfterMs(value: string | null): number | undefined {
+  if (value === null) return undefined
+  const trimmed = value.trim()
+  if (/^\d+$/.test(trimmed)) {
+    return Number.parseInt(trimmed, 10) * 1000
+  }
+  const timestamp = Date.parse(trimmed)
+  if (Number.isNaN(timestamp)) return undefined
+  return Math.max(0, timestamp - Date.now())
+}
+
+/**
+ * retry 前に不要なレスポンスボディを解放する。
+ * cancel 自体の失敗は元の一時障害より優先しない。
+ *
+ * @param response 解放対象レスポンス
+ */
+async function discardResponseBody(response: Response): Promise<void> {
+  try {
+    await response.body?.cancel()
+  } catch {
+    // best-effort cleanup
+  }
+}
+
 /**
  * 外部 API への fetch を実行するラッパー。
+ * ETIMEDOUT 等の一時的なネットワークエラーや 429 / 5xx 応答は bounded retry（backoff + jitter）で回復を試み、
+ * 4xx 等の恒久的なエラーは retry せず即座に throw する。
  * 失敗時は operation 名・sanitized endpoint（host + pathname のみ。query に含まれ得る token 等の secret は含めない）・HTTP status または Node fetch の error.cause / cause.code を、エラーメッセージと `cause` に保持したまま throw する。
  *
  * @param operation ログ・エラーメッセージ用の操作名（例: getUserLikes）
@@ -205,31 +275,59 @@ class BlueskyPostCache {
 async function fetchExternal(operation: string, url: URL): Promise<Response> {
   const endpoint = `${url.origin}${url.pathname}`
 
-  let res: Response
-  try {
-    res = await fetch(url.href)
-  } catch (error) {
-    const cause = error instanceof Error ? error.cause : undefined
-    const causeCode =
-      cause && typeof cause === 'object' && 'code' in cause
-        ? String(cause.code)
-        : undefined
-    throw new Error(
-      `❌ Failed to fetch (${operation}): ${endpoint}${
-        causeCode ? ` (cause: ${causeCode})` : ''
-      }`,
-      // stack trace を保持するため、元のエラーを cause として連鎖させる
-      { cause: error }
-    )
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    let res: Response
+    try {
+      res = await fetch(url.href)
+    } catch (error) {
+      const cause = error instanceof Error ? error.cause : undefined
+      const causeCode =
+        cause && typeof cause === 'object' && 'code' in cause
+          ? String(cause.code)
+          : undefined
+
+      if (
+        causeCode &&
+        TRANSIENT_CAUSE_CODES.has(causeCode) &&
+        attempt < MAX_ATTEMPTS
+      ) {
+        await sleep(backoffDelayMs(attempt))
+        continue
+      }
+
+      throw new Error(
+        `❌ Failed to fetch (${operation}): ${endpoint}${
+          causeCode ? ` (cause: ${causeCode})` : ''
+        }`,
+        // stack trace を保持するため、元のエラーを cause として連鎖させる
+        { cause: error }
+      )
+    }
+
+    if (!res.ok) {
+      if (TRANSIENT_STATUS_CODES.has(res.status) && attempt < MAX_ATTEMPTS) {
+        const retryDelay =
+          res.status === 429
+            ? (parseRetryAfterMs(res.headers.get('Retry-After')) ??
+              backoffDelayMs(attempt))
+            : backoffDelayMs(attempt)
+        await discardResponseBody(res)
+        await sleep(retryDelay)
+        continue
+      }
+
+      throw new Error(
+        `❌ Failed to fetch (${operation}): ${endpoint} returned ${res.status} ${res.statusText}`
+      )
+    }
+
+    return res
   }
 
-  if (!res.ok) {
-    throw new Error(
-      `❌ Failed to fetch (${operation}): ${endpoint} returned ${res.status} ${res.statusText}`
-    )
-  }
-
-  return res
+  // MAX_ATTEMPTS >= 1 であるため、上のループ内で必ず return または throw される
+  throw new Error(
+    `❌ Failed to fetch (${operation}): ${endpoint} (unreachable)`
+  )
 }
 
 export class Bluesky {
