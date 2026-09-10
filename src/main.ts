@@ -44,6 +44,7 @@ async function main() {
     const postDetail = postDetails.find((p) => p.uri === uri)
     if (!postDetail) {
       console.log(`  -> Skip because postDetail is undefined`)
+      Notified.addNotified(uri)
       continue
     }
     Notified.addNotified(uri)
