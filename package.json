@@ -24,7 +24,7 @@
   "homepage": "https://github.com/tomacheese/watch-bsky-likes",
   "license": "MIT",
   "main": "dist/main.js",
-  "packageManager": "pnpm@11.26.0+sha512.fc0e2bf890b9f983611f1ab68c0637bce914390653699f83c1a78b005ed25f2c81e77920c8fd8eee2ecf0b58b28cdcb00a84d97f69bcf7c56b2f344710238664",
+  "packageManager": "pnpm@12.3.4",
   "private": true,
   "repository": {
     "type": "git",
