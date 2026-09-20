@@ -245,8 +245,9 @@ function parseRetryAfterMs(value: string | null): number | undefined {
     return Number.parseInt(trimmed, 10) * 1000
   }
   const timestamp = Date.parse(trimmed)
-  if (Number.isNaN(timestamp)) return undefined
-  return Math.max(0, timestamp - Date.now())
+  return Number.isNaN(timestamp)
+    ? undefined
+    : Math.max(0, timestamp - Date.now())
 }
 
 /**
@@ -420,10 +421,8 @@ export class Bluesky {
       return false
     }
 
-    if (embed.$type !== 'app.bsky.embed.images') {
-      return false
-    }
-
-    return embed.images.length > 0
+    return embed.$type === 'app.bsky.embed.images'
+      ? embed.images.length > 0
+      : false
   }
 }
