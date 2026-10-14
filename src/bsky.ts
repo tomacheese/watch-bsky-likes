@@ -417,12 +417,6 @@ export class Bluesky {
 
   public static isImagePost(post: Post): post is ImagePost {
     const embed = post.record.embed
-    if (!embed) {
-      return false
-    }
-
-    return embed.$type === 'app.bsky.embed.images'
-      ? embed.images.length > 0
-      : false
+    return embed?.$type === 'app.bsky.embed.images' && embed.images.length > 0
   }
 }
