@@ -421,8 +421,6 @@ export class Bluesky {
       return false
     }
 
-    return embed.$type === 'app.bsky.embed.images'
-      ? embed.images.length > 0
-      : false
+    return embed.$type === 'app.bsky.embed.images' && embed.images.length > 0
   }
 }
