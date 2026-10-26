@@ -2,6 +2,7 @@ import { Notified } from './notified'
 import { Configuration } from './config'
 import { Discord, Logger } from '@book000/node-utils'
 import { Bluesky } from './bsky'
+import { processLikes } from './process-likes'
 
 async function main() {
   const logger = Logger.configure('main')
@@ -30,36 +31,7 @@ async function main() {
     filteredResults.map((r) => r.value.subject.uri)
   )
 
-  for (const record of filteredResults) {
-    const { uri } = record.value.subject
-    const createdAt = record.value.createdAt
-
-    const postUrl = Bluesky.getPostUrl(uri)
-    if (!postUrl) {
-      continue
-    }
-
-    console.log(`liked your post: ${postUrl} at ${createdAt}`)
-
-    const postDetail = postDetails.find((p) => p.uri === uri)
-    if (!postDetail) {
-      console.log(`  -> Skip because postDetail is undefined`)
-      Notified.addNotified(uri)
-      continue
-    }
-    Notified.addNotified(uri)
-
-    if (!Bluesky.isImagePost(postDetail)) {
-      console.log(`  -> Skip because postDetail is not an image post`)
-      continue
-    }
-
-    if (isFirst) {
-      continue
-    }
-
-    await discord.sendMessage(postUrl)
-  }
+  await processLikes(filteredResults, postDetails, discord, isFirst)
 }
 
 ;(async () => {

@@ -1,6 +1,6 @@
 import fs from 'node:fs'
 
-interface Like {
+export interface Like {
   uri: string
   cid: string
   value: {
@@ -52,7 +52,7 @@ interface NonImagesEmbed {
 
 type Embed = ImagesEmbed | NonImagesEmbed
 
-interface Post {
+export interface Post {
   uri: string
   cid: string
   author: {
