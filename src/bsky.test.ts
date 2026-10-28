@@ -102,9 +102,9 @@ registerTest('503 応答は body を解放してから retry し成功する', a
   t.mock.method(Math, 'random', () => 0)
   t.mock.method(globalThis, 'fetch', () => {
     calls += 1
-    return calls === 1
-      ? Promise.resolve(
-          new Response(
+    return Promise.resolve(
+      calls === 1
+        ? new Response(
             new ReadableStream({
               cancel() {
                 cancelled = true
@@ -112,8 +112,8 @@ registerTest('503 応答は body を解放してから retry し成功する', a
             }),
             { status: 503, statusText: 'Service Unavailable' }
           )
-        )
-      : Promise.resolve(okLikesResponse())
+        : okLikesResponse()
+    )
   })
 
   const result = await Bluesky.getUserLikes('did:plc:example')
@@ -149,14 +149,14 @@ registerTest('429 応答は Retry-After を尊重して retry する', async (t)
   let calls = 0
   t.mock.method(globalThis, 'fetch', () => {
     calls += 1
-    return calls === 1
-      ? Promise.resolve(
-          new Response('rate limited', {
+    return Promise.resolve(
+      calls === 1
+        ? new Response('rate limited', {
             status: 429,
             headers: { 'Retry-After': '0' },
           })
-        )
-      : Promise.resolve(okLikesResponse())
+        : okLikesResponse()
+    )
   })
 
   const result = await Bluesky.getUserLikes('did:plc:example')
