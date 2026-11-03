@@ -3,10 +3,7 @@ import { test, TestContext } from 'node:test'
 import { Bluesky } from './bsky'
 
 /**
- * node:test の登録 Promise を明示的に処理し、テスト失敗をそのまま再送出する。
- *
- * @param name テスト名
- * @param function_ テスト本体
+ * Explicitly handles the promise returned by node:test registration and rethrows test failures as-is.
  */
 function registerTest(
   name: string,
@@ -18,7 +15,7 @@ function registerTest(
 }
 
 /**
- * ETIMEDOUT 相当の transient なネットワークエラーを再現する。
+ * Reproduces a transient network error equivalent to ETIMEDOUT.
  */
 function transientNetworkError(): Error {
   return new Error('fetch failed', {
@@ -27,13 +24,13 @@ function transientNetworkError(): Error {
 }
 
 /**
- * 空の likes API 正常応答を生成する。
+ * Creates a successful, empty likes API response.
  */
 function okLikesResponse(): Response {
   return Response.json({ records: [], cursor: '' })
 }
 
-registerTest('ETIMEDOUT が一度だけ発生しても retry で成功する', async (t) => {
+registerTest('succeeds on retry when ETIMEDOUT occurs only once', async (t) => {
   let calls = 0
   t.mock.method(Math, 'random', () => 0)
   t.mock.method(globalThis, 'fetch', () => {
@@ -49,7 +46,7 @@ registerTest('ETIMEDOUT が一度だけ発生しても retry で成功する', a
 })
 
 registerTest(
-  'ETIMEDOUT が retry 上限を超えて続く場合は最終的に throw する',
+  'finally throws when ETIMEDOUT persists beyond the retry limit',
   async (t) => {
     let calls = 0
     t.mock.method(Math, 'random', () => 0)
@@ -66,21 +63,27 @@ registerTest(
   }
 )
 
-registerTest('恒久的な 404 応答は retry せず即座に throw する', async (t) => {
-  let calls = 0
-  t.mock.method(globalThis, 'fetch', () => {
-    calls += 1
-    return Promise.resolve(
-      new Response('not found', { status: 404, statusText: 'Not Found' })
-    )
-  })
+registerTest(
+  'throws immediately on a permanent 404 response without retrying',
+  async (t) => {
+    let calls = 0
+    t.mock.method(globalThis, 'fetch', () => {
+      calls += 1
+      return Promise.resolve(
+        new Response('not found', { status: 404, statusText: 'Not Found' })
+      )
+    })
 
-  await assert.rejects(Bluesky.getUserLikes('did:plc:example'), /returned 404/)
-  assert.equal(calls, 1)
-})
+    await assert.rejects(
+      Bluesky.getUserLikes('did:plc:example'),
+      /returned 404/
+    )
+    assert.equal(calls, 1)
+  }
+)
 
 registerTest(
-  'cause のない TypeError は retry せず即座に throw する',
+  'throws immediately on a TypeError without cause, without retrying',
   async (t) => {
     let calls = 0
     t.mock.method(globalThis, 'fetch', () => {
@@ -96,34 +99,37 @@ registerTest(
   }
 )
 
-registerTest('503 応答は body を解放してから retry し成功する', async (t) => {
-  let calls = 0
-  let cancelled = false
-  t.mock.method(Math, 'random', () => 0)
-  t.mock.method(globalThis, 'fetch', () => {
-    calls += 1
-    return Promise.resolve(
-      calls === 1
-        ? new Response(
-            new ReadableStream({
-              cancel() {
-                cancelled = true
-              },
-            }),
-            { status: 503, statusText: 'Service Unavailable' }
-          )
-        : okLikesResponse()
-    )
-  })
+registerTest(
+  'releases the body of a 503 response, then retries and succeeds',
+  async (t) => {
+    let calls = 0
+    let cancelled = false
+    t.mock.method(Math, 'random', () => 0)
+    t.mock.method(globalThis, 'fetch', () => {
+      calls += 1
+      return Promise.resolve(
+        calls === 1
+          ? new Response(
+              new ReadableStream({
+                cancel() {
+                  cancelled = true
+                },
+              }),
+              { status: 503, statusText: 'Service Unavailable' }
+            )
+          : okLikesResponse()
+      )
+    })
 
-  const result = await Bluesky.getUserLikes('did:plc:example')
-  assert.deepEqual(result, { records: [], cursor: '' })
-  assert.equal(calls, 2)
-  assert.equal(cancelled, true)
-})
+    const result = await Bluesky.getUserLikes('did:plc:example')
+    assert.deepEqual(result, { records: [], cursor: '' })
+    assert.equal(calls, 2)
+    assert.equal(cancelled, true)
+  }
+)
 
 registerTest(
-  '503 が retry 上限を超えて続く場合は最終的に throw する',
+  'finally throws when 503 persists beyond the retry limit',
   async (t) => {
     let calls = 0
     t.mock.method(Math, 'random', () => 0)
@@ -145,7 +151,7 @@ registerTest(
   }
 )
 
-registerTest('429 応答は Retry-After を尊重して retry する', async (t) => {
+registerTest('retries a 429 response honoring Retry-After', async (t) => {
   let calls = 0
   t.mock.method(globalThis, 'fetch', () => {
     calls += 1

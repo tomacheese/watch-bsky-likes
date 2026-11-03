@@ -8,10 +8,7 @@ const POST_URI = 'at://did:plc:abc/app.bsky.feed.post/xyz'
 const POST_URL = 'https://bsky.app/profile/did:plc:abc/post/xyz'
 
 /**
- * node:test の登録 Promise を明示的に処理し、テスト失敗をそのまま再送出する。
- *
- * @param name テスト名
- * @param function_ テスト本体
+ * Explicitly handles the promise returned by node:test registration and rethrows test failures as-is.
  */
 function registerTest(
   name: string,
@@ -22,9 +19,6 @@ function registerTest(
   })
 }
 
-/**
- * いいねレコードを生成する。
- */
 function like(): Like {
   return {
     uri: 'at://did:plc:me/app.bsky.feed.like/1',
@@ -38,9 +32,7 @@ function like(): Like {
 }
 
 /**
- * 投稿を生成する。processLikes が参照する uri と record.embed のみを設定する。
- *
- * @param embedType embed の $type
+ * Creates a post. Only uri and record.embed, which processLikes reads, are set.
  */
 function post(embedType: string): Post {
   const embed =
@@ -51,7 +43,7 @@ function post(embedType: string): Post {
 }
 
 registerTest(
-  '画像投稿の送信が失敗した場合は通知済みとして記録しない',
+  'does not record an image post as notified when sending fails',
   async (t) => {
     const added: string[] = []
     t.mock.method(Notified, 'addNotified', (uri: string) => {
@@ -70,7 +62,7 @@ registerTest(
 )
 
 registerTest(
-  '画像投稿の送信が成功した後に通知済みとして記録する',
+  'records an image post as notified after sending succeeds',
   async (t) => {
     const calls: string[] = []
     t.mock.method(Notified, 'addNotified', (uri: string) => {
@@ -89,36 +81,47 @@ registerTest(
   }
 )
 
-registerTest('初回実行では送信せずに通知済みとして記録する', async (t) => {
-  const calls: string[] = []
-  t.mock.method(Notified, 'addNotified', (uri: string) => {
-    calls.push(`add:${uri}`)
-  })
-  const sender = {
-    sendMessage: (message: string) => {
-      calls.push(`send:${message}`)
-      return Promise.resolve('id')
-    },
+registerTest(
+  'records posts as notified without sending on the first run',
+  async (t) => {
+    const calls: string[] = []
+    t.mock.method(Notified, 'addNotified', (uri: string) => {
+      calls.push(`add:${uri}`)
+    })
+    const sender = {
+      sendMessage: (message: string) => {
+        calls.push(`send:${message}`)
+        return Promise.resolve('id')
+      },
+    }
+
+    await processLikes([like()], [post('app.bsky.embed.images')], sender, true)
+
+    assert.deepEqual(calls, [`add:${POST_URI}`])
   }
+)
 
-  await processLikes([like()], [post('app.bsky.embed.images')], sender, true)
+registerTest(
+  'records non-image posts as notified without sending',
+  async (t) => {
+    const calls: string[] = []
+    t.mock.method(Notified, 'addNotified', (uri: string) => {
+      calls.push(`add:${uri}`)
+    })
+    const sender = {
+      sendMessage: (message: string) => {
+        calls.push(`send:${message}`)
+        return Promise.resolve('id')
+      },
+    }
 
-  assert.deepEqual(calls, [`add:${POST_URI}`])
-})
+    await processLikes(
+      [like()],
+      [post('app.bsky.embed.external')],
+      sender,
+      false
+    )
 
-registerTest('画像以外の投稿は送信せずに通知済みとして記録する', async (t) => {
-  const calls: string[] = []
-  t.mock.method(Notified, 'addNotified', (uri: string) => {
-    calls.push(`add:${uri}`)
-  })
-  const sender = {
-    sendMessage: (message: string) => {
-      calls.push(`send:${message}`)
-      return Promise.resolve('id')
-    },
+    assert.deepEqual(calls, [`add:${POST_URI}`])
   }
-
-  await processLikes([like()], [post('app.bsky.embed.external')], sender, false)
-
-  assert.deepEqual(calls, [`add:${POST_URI}`])
-})
+)
