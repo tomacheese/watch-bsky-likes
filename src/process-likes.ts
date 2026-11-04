@@ -2,20 +2,20 @@ import { Bluesky, Like, Post } from './bsky'
 import { Notified } from './notified'
 
 /**
- * メッセージを送信するオブジェクト。Discord クラスが構造的に満たす。
+ * Object that can send a message. The Discord class satisfies it structurally.
  */
 export interface MessageSender {
   sendMessage(message: string): Promise<unknown>
 }
 
 /**
- * いいねされた投稿を順に処理し、画像投稿を Discord へ通知する。
- * 画像投稿は送信が成功してから通知済みとして記録するため、送信に失敗した投稿は次回実行で再送される。
+ * Processes liked posts in order and notifies Discord about image posts.
+ * An image post is recorded as notified only after the send succeeds, so a post whose send failed is retried on the next run.
  *
- * @param records 未通知のいいねレコード
- * @param postDetails 投稿の詳細
- * @param discord 通知の送信先
- * @param isFirst 初回実行かどうか。初回は送信せず通知済みとして記録のみ行う
+ * @param records Like records not yet notified
+ * @param postDetails Post details
+ * @param discord Destination for notifications
+ * @param isFirst Whether this is the first run. On the first run nothing is sent and posts are only recorded as notified
  */
 export async function processLikes(
   records: Like[],

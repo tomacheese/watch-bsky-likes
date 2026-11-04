@@ -1,34 +1,33 @@
 # watch-bsky-likes
 
-Bluesky ユーザーのいいねを監視し、いいねした画像投稿を Discord に通知するツールです。
+Watches the likes of a Bluesky user and notifies Discord about liked posts that contain images.
 
-## 機能
+## Features
 
-- 指定した Bluesky ユーザーのいいねを定期的に取得
-- いいねした画像投稿を Discord に通知
-- 既に通知したいいねの重複通知を防止
+- Periodically fetches the likes of a specified Bluesky user
+- Notifies Discord about liked image posts
+- Prevents duplicate notifications for likes that were already notified
+- Retries transient network errors and 429 / 5xx responses with backoff
+- On the first run (no `data/notified.json` yet), existing likes are only recorded and nothing is sent
 
-## 必要要件
+## Requirements
 
-- Node.js（`.node-version` 参照）
+- Node.js (see `.node-version`)
 - pnpm
 
-## インストール
+## Installation
 
 ```bash
-# リポジトリのクローン
 git clone https://github.com/tomacheese/watch-bsky-likes.git
 cd watch-bsky-likes
-
-# 依存関係のインストール
 pnpm install
 ```
 
-## 設定
+## Configuration
 
-### Discord 通知設定
+### Discord
 
-`data/config.json` を作成し、Discord の通知設定を行います。
+Create `data/config.json` with either a webhook:
 
 ```json
 {
@@ -38,7 +37,7 @@ pnpm install
 }
 ```
 
-または Bot Token を使用する場合:
+or a bot token and channel:
 
 ```json
 {
@@ -49,34 +48,40 @@ pnpm install
 }
 ```
 
-### 監視対象ユーザーの設定
+### Watched user
 
-監視対象の Bluesky ユーザーは、現在ソースコード内にハードコードされています。
-監視対象を変更するには、`src/main.ts` の以下の箇所を編集してください:
+The watched Bluesky user is currently hardcoded in `src/main.ts`. To change it, edit this line and replace `'hiratake.dev'` with the handle you want to watch:
 
 ```typescript
 const results = await Bluesky.getUserLikes('hiratake.dev')
 ```
 
-`'hiratake.dev'` の部分を、監視したい Bluesky ユーザーのハンドル名に変更してください。
+### Data files
 
-## 使用方法
+State is stored under `data/` (created on demand): `config.json`, `notified.json` (override with the `NOTIFIED_FILE` environment variable) and `post_cache/` (override with `POST_CACHE_PATH`).
+
+## Usage
 
 ```bash
-# 実行
+# Run once
 pnpm start
 
-# 開発モード（ファイル変更を監視）
+# Development mode (restarts on file changes)
 pnpm dev
+
+# Run tests
+pnpm test
 ```
 
-## Docker での実行
+## Docker
+
+The container runs `pnpm start` every 10 minutes.
 
 ```bash
 docker build -t watch-bsky-likes .
 docker run -v $(pwd)/data:/app/data watch-bsky-likes
 ```
 
-## ライセンス
+## License
 
-このプロジェクトは [MIT](LICENSE) ライセンスの下で公開されています。
+This project is released under the [MIT](LICENSE) license.

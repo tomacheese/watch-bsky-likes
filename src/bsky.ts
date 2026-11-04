@@ -18,7 +18,6 @@ interface LikeResponse {
   cursor: string
 }
 
-// app.bsky.embed.images: 画像埋め込み
 interface ImagesEmbed {
   $type: 'app.bsky.embed.images'
   images: {
@@ -38,10 +37,10 @@ interface ImagesEmbed {
   }[]
 }
 
-// app.bsky.embed.images 以外の既知の embed 種別。
-// これらの内部構造（external.uri 等）は現状どのコードからも参照されていないため、
-// 判別に必要な $type のみを型に残す。実際にその embed の中身を扱う実装が
-// 追加されたタイミングで、該当の型を個別に定義する。
+// Known embed types other than app.bsky.embed.images.
+// Their internals (e.g. external.uri) are not read anywhere, so only the
+// $type needed for discrimination is kept. Define each type in full when code
+// that actually uses that embed is added.
 interface NonImagesEmbed {
   $type:
     | 'app.bsky.embed.external'
@@ -135,7 +134,6 @@ export interface Post {
   }[]
 }
 
-// 画像付きの投稿であることが保証される型
 type ImagePost = Post & {
   record: Post['record'] & {
     embed: ImagesEmbed
@@ -195,7 +193,7 @@ class BlueskyPostCache {
   }
 }
 
-// 一時的な障害とみなして retry する Node fetch の error.cause.code
+// Node fetch error.cause.code values treated as transient and retried
 const TRANSIENT_CAUSE_CODES = new Set([
   'ETIMEDOUT',
   'ECONNRESET',
@@ -204,27 +202,25 @@ const TRANSIENT_CAUSE_CODES = new Set([
   'EPIPE',
 ])
 
-// 一時的な障害とみなして retry する HTTP status（429: rate limit, 5xx: サーバー側の一時的な問題）
+// HTTP statuses treated as transient and retried
 const TRANSIENT_STATUS_CODES = new Set([429, 500, 502, 503, 504])
 
-// 初回 + retry を含めた最大試行回数
+// Maximum number of attempts, including the first one
 const MAX_ATTEMPTS = 3
 const RETRY_BASE_DELAY_MS = 500
 
 /**
- * 指定ミリ秒だけ待機する（retry の backoff 用）。
- *
- * @param ms 待機時間（ミリ秒）
+ * Waits for the given number of milliseconds (used for retry backoff).
  */
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
 /**
- * retry 間隔を算出する（exponential backoff + jitter）。
- * 同時多発的な retry が API に一斉に再送されるのを避けるため、指数的な待機時間にランダムな揺らぎを加える。
+ * Computes the retry delay (exponential backoff + jitter).
+ * Random jitter is added to the exponential delay so that concurrent retries do not hit the API all at once.
  *
- * @param attempt 何回目の試行後か（1-indexed）
+ * @param attempt Number of the attempt that just failed (1-indexed)
  */
 function backoffDelayMs(attempt: number): number {
   const exponential = RETRY_BASE_DELAY_MS * 2 ** (attempt - 1)
@@ -233,10 +229,10 @@ function backoffDelayMs(attempt: number): number {
 }
 
 /**
- * HTTP 429 の Retry-After をミリ秒へ変換する。
- * 秒数形式と HTTP-date 形式を扱い、解釈できない場合は undefined を返す。
+ * Converts an HTTP 429 Retry-After header value to milliseconds.
+ * Handles both the delay-seconds and HTTP-date formats, and returns undefined if the value cannot be parsed.
  *
- * @param value Retry-After ヘッダー値
+ * @param value Retry-After header value
  */
 function parseRetryAfterMs(value: string | null): number | undefined {
   if (value === null) return undefined
@@ -251,10 +247,10 @@ function parseRetryAfterMs(value: string | null): number | undefined {
 }
 
 /**
- * retry 前に不要なレスポンスボディを解放する。
- * cancel 自体の失敗は元の一時障害より優先しない。
+ * Releases the unused response body before a retry.
+ * A failure of the cancel itself must not take precedence over the original transient failure.
  *
- * @param response 解放対象レスポンス
+ * @param response Response whose body should be released
  */
 async function discardResponseBody(response: Response): Promise<void> {
   try {
@@ -265,13 +261,14 @@ async function discardResponseBody(response: Response): Promise<void> {
 }
 
 /**
- * 外部 API への fetch を実行するラッパー。
- * ETIMEDOUT 等の一時的なネットワークエラーや 429 / 5xx 応答は bounded retry（backoff + jitter）で回復を試み、
- * 4xx 等の恒久的なエラーは retry せず即座に throw する。
- * 失敗時は operation 名・sanitized endpoint（host + pathname のみ。query に含まれ得る token 等の secret は含めない）・HTTP status または Node fetch の error.cause / cause.code を、エラーメッセージと `cause` に保持したまま throw する。
+ * Wrapper around fetch for external APIs.
+ * Transient network errors such as ETIMEDOUT and 429 / 5xx responses are retried a bounded number of times (backoff + jitter);
+ * permanent errors such as 4xx are thrown immediately without retrying.
+ * On failure, the thrown error names the operation and a sanitized endpoint (origin + pathname only, so secrets such as tokens that may appear in the query are never included).
+ * For HTTP errors the status appears in the message; for network failures the original error is attached as `cause` and its code is included.
  *
- * @param operation ログ・エラーメッセージ用の操作名（例: getUserLikes）
- * @param url 呼び出し先の URL
+ * @param operation Operation name used in error messages (e.g. getUserLikes)
+ * @param url URL to call
  */
 async function fetchExternal(operation: string, url: URL): Promise<Response> {
   const endpoint = `${url.origin}${url.pathname}`
@@ -300,7 +297,7 @@ async function fetchExternal(operation: string, url: URL): Promise<Response> {
         `❌ Failed to fetch (${operation}): ${endpoint}${
           causeCode ? ` (cause: ${causeCode})` : ''
         }`,
-        // stack trace を保持するため、元のエラーを cause として連鎖させる
+        // Chain the original error as cause to preserve its stack trace
         { cause: error }
       )
     }
@@ -325,7 +322,7 @@ async function fetchExternal(operation: string, url: URL): Promise<Response> {
     return res
   }
 
-  // MAX_ATTEMPTS >= 1 であるため、上のループ内で必ず return または throw される
+  // MAX_ATTEMPTS >= 1, so the loop above always returns or throws
   throw new Error(
     `❌ Failed to fetch (${operation}): ${endpoint} (unreachable)`
   )
@@ -365,7 +362,6 @@ export class Bluesky {
     }
 
     if (uncachedUris.length > 0) {
-      // 20件ずつ取得
       const chunkedUris = uncachedUris.reduce<string[][]>((acc, uri, index) => {
         const chunkIndex = Math.floor(index / 20)
         acc[chunkIndex] ??= []

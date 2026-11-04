@@ -38,8 +38,8 @@ async function main() {
   try {
     await main()
   } catch (error) {
-    // fetch のネットワークエラーなどで main() が reject した場合、
-    // 未処理のまま unhandledRejection として落ちるのを防ぐ
+    // Prevent main() rejections (e.g. fetch network errors) from escaping
+    // as an unhandledRejection and crashing the process
     const logger = Logger.configure('main')
     logger.error('❌ Unhandled error in main', error as Error)
     process.exitCode = 1
