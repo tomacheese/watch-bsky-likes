@@ -7,7 +7,7 @@
     "url": "https://github.com/tomacheese/watch-bsky-likes/issues"
   },
   "devDependencies": {
-    "@book000/eslint-config": "1.16.115",
+    "@book000/eslint-config": "1.16.116",
     "@book000/node-utils": "1.26.3",
     "@types/node": "26.6.6",
     "eslint": "10.14.0",
