@@ -43,13 +43,15 @@ interface ImagesEmbed {
 // that actually uses that embed is added.
 interface NonImagesEmbed {
   $type:
-    | 'app.bsky.embed.external'
-    | 'app.bsky.embed.record'
-    | 'app.bsky.embed.recordWithMedia'
-    | 'app.bsky.embed.video'
+    'app.bsky.embed.external' | 'app.bsky.embed.record' | 'app.bsky.embed.video'
 }
 
-type Embed = ImagesEmbed | NonImagesEmbed
+interface RecordWithMediaEmbed {
+  $type: 'app.bsky.embed.recordWithMedia'
+  media?: ImagesEmbed | NonImagesEmbed
+}
+
+type Embed = ImagesEmbed | NonImagesEmbed | RecordWithMediaEmbed
 
 export interface Post {
   uri: string
@@ -132,12 +134,6 @@ export interface Post {
     cts: string
     ver?: number
   }[]
-}
-
-type ImagePost = Post & {
-  record: Post['record'] & {
-    embed: ImagesEmbed
-  }
 }
 
 interface PostsResponse {
@@ -411,8 +407,14 @@ export class Bluesky {
     return `https://bsky.app/profile/${actor}/post/${cid}`
   }
 
-  public static isImagePost(post: Post): post is ImagePost {
+  public static isImagePost(post: Post): boolean {
     const embed = post.record.embed
-    return embed?.$type === 'app.bsky.embed.images' && embed.images.length > 0
+    const media =
+      embed?.$type === 'app.bsky.embed.recordWithMedia' ? embed.media : embed
+    return (
+      media?.$type === 'app.bsky.embed.images' &&
+      Array.isArray(media.images) &&
+      media.images.length > 0
+    )
   }
 }
