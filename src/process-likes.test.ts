@@ -82,6 +82,35 @@ registerTest(
 )
 
 registerTest(
+  'sends a quote post with attached images before recording it',
+  async (t) => {
+    const calls: string[] = []
+    t.mock.method(Notified, 'addNotified', (uri: string) => {
+      calls.push(`add:${uri}`)
+    })
+    const sender = {
+      sendMessage: (message: string) => {
+        calls.push(`send:${message}`)
+        return Promise.resolve('id')
+      },
+    }
+    const quotePost = {
+      uri: POST_URI,
+      record: {
+        embed: {
+          $type: 'app.bsky.embed.recordWithMedia',
+          media: { $type: 'app.bsky.embed.images', images: [{}] },
+        },
+      },
+    } as unknown as Post
+
+    await processLikes([like()], [quotePost], sender, false)
+
+    assert.deepEqual(calls, [`send:${POST_URL}`, `add:${POST_URI}`])
+  }
+)
+
+registerTest(
   'records posts as notified without sending on the first run',
   async (t) => {
     const calls: string[] = []

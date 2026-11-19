@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test, TestContext } from 'node:test'
-import { Bluesky } from './bsky'
+import { Bluesky, Post } from './bsky'
 
 /**
  * Explicitly handles the promise returned by node:test registration and rethrows test failures as-is.
@@ -29,6 +29,55 @@ function transientNetworkError(): Error {
 function okLikesResponse(): Response {
   return Response.json({ records: [], cursor: '' })
 }
+
+registerTest('recognizes only images attached to the post', () => {
+  const images = { $type: 'app.bsky.embed.images', images: [{}] }
+  const cases: [unknown, boolean][] = [
+    [images, true],
+    [{ ...images, images: [] }, false],
+    [{ $type: 'app.bsky.embed.images' }, false],
+    [{ $type: 'app.bsky.embed.recordWithMedia', media: images }, true],
+    [
+      {
+        $type: 'app.bsky.embed.recordWithMedia',
+        media: { ...images, images: [] },
+      },
+      false,
+    ],
+    [
+      {
+        $type: 'app.bsky.embed.recordWithMedia',
+        media: { $type: 'app.bsky.embed.images' },
+      },
+      false,
+    ],
+    [{ $type: 'app.bsky.embed.recordWithMedia' }, false],
+    [{ $type: 'app.bsky.embed.recordWithMedia', media: null }, false],
+    [
+      {
+        $type: 'app.bsky.embed.recordWithMedia',
+        media: { $type: 'app.bsky.embed.external' },
+      },
+      false,
+    ],
+    [
+      {
+        $type: 'app.bsky.embed.recordWithMedia',
+        media: { $type: 'app.bsky.embed.video' },
+      },
+      false,
+    ],
+    [{ $type: 'app.bsky.embed.record', record: { embed: images } }, false],
+    [{ $type: 'app.bsky.embed.external' }, false],
+    [{ $type: 'app.bsky.embed.video' }, false],
+    [undefined, false],
+  ]
+  for (const [embed, expected] of cases) {
+    const post = { record: { embed } } as Post
+    assert.equal(Bluesky.isImagePost(post), expected, JSON.stringify(embed))
+  }
+  return Promise.resolve()
+})
 
 registerTest('succeeds on retry when ETIMEDOUT occurs only once', async (t) => {
   let calls = 0
