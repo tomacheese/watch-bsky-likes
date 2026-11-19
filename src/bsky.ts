@@ -140,8 +140,25 @@ type ImagePost = Post & {
   }
 }
 
-interface PostsResponse {
-  posts: Post[]
+/**
+ * Runtime check of the fields this tool reads from an API response or cache
+ * file. Anything that fails it must not be treated as a `Post`.
+ */
+function isPost(value: unknown): value is Post {
+  if (typeof value !== 'object' || value === null) return false
+  const { uri, record } = value as { uri?: unknown; record?: unknown }
+  if (typeof uri !== 'string' || typeof record !== 'object' || record === null)
+    return false
+
+  const embed = (record as { embed?: unknown }).embed
+  if (embed === undefined) return true
+  if (typeof embed !== 'object' || embed === null) return false
+
+  const { $type, images } = embed as { $type?: unknown; images?: unknown }
+  return (
+    typeof $type === 'string' &&
+    ($type !== 'app.bsky.embed.images' || Array.isArray(images))
+  )
 }
 
 class BlueskyPostCache {
@@ -156,8 +173,8 @@ class BlueskyPostCache {
     }
 
     try {
-      const data = fs.readFileSync(filename, 'utf8')
-      return JSON.parse(data) as Post
+      const data: unknown = JSON.parse(fs.readFileSync(filename, 'utf8'))
+      return isPost(data) ? data : undefined
     } catch {
       return undefined
     }
@@ -372,10 +389,32 @@ export class Bluesky {
 
       for (const chunk of chunkedUris) {
         const response = await Bluesky.getPostsFromApi(chunk)
-        posts.push(...response.posts)
+        if (
+          typeof response !== 'object' ||
+          response === null ||
+          !('posts' in response) ||
+          !Array.isArray(response.posts)
+        ) {
+          throw new Error(
+            '❌ Invalid response (getPostsFromApi): posts is not an array'
+          )
+        }
 
-        for (const post of response.posts) {
-          BlueskyPostCache.setPost(post.uri, post)
+        for (const entry of response.posts as unknown[]) {
+          if (!Bluesky.isPost(entry)) {
+            const uri =
+              typeof entry === 'object' && entry !== null && 'uri' in entry
+                ? entry.uri
+                : undefined
+            console.warn(
+              '⚠️ Skip malformed post in getPostsFromApi',
+              ...(typeof uri === 'string' ? [uri] : [])
+            )
+            continue
+          }
+
+          posts.push(entry)
+          BlueskyPostCache.setPost(entry.uri, entry)
         }
       }
     }
@@ -383,7 +422,7 @@ export class Bluesky {
     return posts
   }
 
-  private static async getPostsFromApi(uris: string[]): Promise<PostsResponse> {
+  private static async getPostsFromApi(uris: string[]): Promise<unknown> {
     const baseUrl = 'https://public.api.bsky.app/xrpc/app.bsky.feed.getPosts'
     const url = new URL(baseUrl)
     const params = new URLSearchParams()
@@ -393,7 +432,7 @@ export class Bluesky {
 
     url.search = params.toString()
     const res = await fetchExternal('getPostsFromApi', url)
-    return (await res.json()) as PostsResponse
+    return await res.json()
   }
 
   public static getPostUrl(uri: string) {
@@ -411,7 +450,10 @@ export class Bluesky {
     return `https://bsky.app/profile/${actor}/post/${cid}`
   }
 
-  public static isImagePost(post: Post): post is ImagePost {
+  public static readonly isPost = isPost
+
+  public static isImagePost(post: unknown): post is ImagePost {
+    if (!Bluesky.isPost(post)) return false
     const embed = post.record.embed
     return embed?.$type === 'app.bsky.embed.images' && embed.images.length > 0
   }
