@@ -221,6 +221,8 @@ const TRANSIENT_STATUS_CODES = new Set([429, 500, 502, 503, 504])
 // Maximum number of attempts, including the first one
 const MAX_ATTEMPTS = 3
 const RETRY_BASE_DELAY_MS = 500
+const MAX_RETRY_DELAY_MS = 5000
+const REQUEST_TIMEOUT_MS = 10_000
 
 /**
  * Waits for the given number of milliseconds (used for retry backoff).
@@ -260,20 +262,6 @@ function parseRetryAfterMs(value: string | null): number | undefined {
 }
 
 /**
- * Releases the unused response body before a retry.
- * A failure of the cancel itself must not take precedence over the original transient failure.
- *
- * @param response Response whose body should be released
- */
-async function discardResponseBody(response: Response): Promise<void> {
-  try {
-    await response.body?.cancel()
-  } catch {
-    // best-effort cleanup
-  }
-}
-
-/**
  * Wrapper around fetch for external APIs.
  * Transient network errors such as ETIMEDOUT and 429 / 5xx responses are retried a bounded number of times (backoff + jitter);
  * permanent errors such as 4xx are thrown immediately without retrying.
@@ -283,13 +271,31 @@ async function discardResponseBody(response: Response): Promise<void> {
  * @param operation Operation name used in error messages (e.g. getUserLikes)
  * @param url URL to call
  */
-async function fetchExternal(operation: string, url: URL): Promise<Response> {
+async function fetchExternal(operation: string, url: URL): Promise<unknown> {
   const endpoint = `${url.origin}${url.pathname}`
 
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
-    let res: Response
+    const controller = new AbortController()
+    let timer: ReturnType<typeof setTimeout> | undefined
+    let res: Response | undefined
     try {
-      res = await fetch(url.href)
+      const result = await Promise.race([
+        (async () => {
+          res = await fetch(url.href, { signal: controller.signal })
+          return res.ok ? await res.json() : undefined
+        })(),
+        new Promise<never>((_resolve, reject) => {
+          timer = setTimeout(() => {
+            reject(
+              new Error('Request timed out', {
+                cause: { code: 'ETIMEDOUT' },
+              })
+            )
+            controller.abort()
+          }, REQUEST_TIMEOUT_MS)
+        }),
+      ])
+      if (res?.ok) return result
     } catch (error) {
       const cause = error instanceof Error ? error.cause : undefined
       const causeCode =
@@ -302,6 +308,7 @@ async function fetchExternal(operation: string, url: URL): Promise<Response> {
         TRANSIENT_CAUSE_CODES.has(causeCode) &&
         attempt < MAX_ATTEMPTS
       ) {
+        clearTimeout(timer)
         await sleep(backoffDelayMs(attempt))
         continue
       }
@@ -313,17 +320,19 @@ async function fetchExternal(operation: string, url: URL): Promise<Response> {
         // Chain the original error as cause to preserve its stack trace
         { cause: error }
       )
+    } finally {
+      clearTimeout(timer)
     }
 
-    if (!res.ok) {
+    if (res && !res.ok) {
       if (TRANSIENT_STATUS_CODES.has(res.status) && attempt < MAX_ATTEMPTS) {
         const retryDelay =
           res.status === 429
             ? (parseRetryAfterMs(res.headers.get('Retry-After')) ??
               backoffDelayMs(attempt))
             : backoffDelayMs(attempt)
-        await discardResponseBody(res)
-        await sleep(retryDelay)
+        void res.body?.cancel().catch(() => undefined)
+        await sleep(Math.min(retryDelay, MAX_RETRY_DELAY_MS))
         continue
       }
 
@@ -331,8 +340,6 @@ async function fetchExternal(operation: string, url: URL): Promise<Response> {
         `❌ Failed to fetch (${operation}): ${endpoint} returned ${res.status} ${res.statusText}`
       )
     }
-
-    return res
   }
 
   // MAX_ATTEMPTS >= 1, so the loop above always returns or throws
@@ -352,8 +359,7 @@ export class Bluesky {
       cursor: '',
       repo: actor,
     }).toString()
-    const res = await fetchExternal('getUserLikes', url)
-    return (await res.json()) as LikeResponse
+    return (await fetchExternal('getUserLikes', url)) as LikeResponse
   }
 
   public static async getPosts(uris: string[], useCache = true) {
@@ -427,8 +433,7 @@ export class Bluesky {
     }
 
     url.search = params.toString()
-    const res = await fetchExternal('getPostsFromApi', url)
-    return await res.json()
+    return await fetchExternal('getPostsFromApi', url)
   }
 
   public static getPostUrl(uri: string) {

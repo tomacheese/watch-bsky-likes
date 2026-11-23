@@ -218,3 +218,129 @@ registerTest('retries a 429 response honoring Retry-After', async (t) => {
   assert.deepEqual(result, { records: [], cursor: '' })
   assert.equal(calls, 2)
 })
+
+registerTest(
+  'times out stalled headers and retries with an abort signal',
+  async (t) => {
+    const originalSetTimeout = setTimeout
+    t.mock.method(globalThis, 'setTimeout', ((
+      callback: () => void,
+      delay?: number
+    ) =>
+      originalSetTimeout(
+        callback,
+        delay === 10_000 ? 10 : 0
+      )) as typeof setTimeout)
+    const signals: AbortSignal[] = []
+    t.mock.method(
+      globalThis,
+      'fetch',
+      (_input: string | URL | Request, init?: RequestInit) => {
+        assert.ok(init?.signal)
+        signals.push(init.signal)
+        return new Promise<Response>(() => {
+          /* deliberately stalled */
+        })
+      }
+    )
+
+    await assert.rejects(
+      Bluesky.getUserLikes('private-actor'),
+      (error: Error) => {
+        assert.match(
+          error.message,
+          /Failed to fetch \(getUserLikes\).*ETIMEDOUT/
+        )
+        assert.doesNotMatch(error.message, /private-actor/)
+        return true
+      }
+    )
+    assert.equal(signals.length, 3)
+    assert.ok(signals.every((signal) => signal.aborted))
+  }
+)
+
+registerTest(
+  'times out an incomplete body and retries successfully',
+  async (t) => {
+    const originalSetTimeout = setTimeout
+    t.mock.method(globalThis, 'setTimeout', ((
+      callback: () => void,
+      delay?: number
+    ) =>
+      originalSetTimeout(
+        callback,
+        delay === 10_000 ? 10 : 0
+      )) as typeof setTimeout)
+    let calls = 0
+    let signal: AbortSignal | undefined
+    t.mock.method(
+      globalThis,
+      'fetch',
+      (_input: string | URL | Request, init?: RequestInit) => {
+        calls++
+        if (calls > 1) return Promise.resolve(okLikesResponse())
+        assert.ok(init?.signal)
+        signal = init.signal
+        return Promise.resolve(
+          new Response(
+            new ReadableStream({
+              start(controller) {
+                controller.enqueue(new TextEncoder().encode('{"records":'))
+              },
+            })
+          )
+        )
+      }
+    )
+
+    assert.deepEqual(await Bluesky.getUserLikes('example'), {
+      records: [],
+      cursor: '',
+    })
+    assert.equal(calls, 2)
+    assert.equal(signal?.aborted, true)
+  }
+)
+
+registerTest(
+  'caps Retry-After and does not wait for body cancellation',
+  async (t) => {
+    const originalSetTimeout = setTimeout
+    const delays: number[] = []
+    t.mock.method(globalThis, 'setTimeout', ((
+      callback: () => void,
+      delay?: number
+    ) => {
+      delays.push(delay ?? 0)
+      return originalSetTimeout(callback, delay === 10_000 ? delay : 0)
+    }) as typeof setTimeout)
+    let calls = 0
+    t.mock.method(globalThis, 'fetch', () => {
+      calls++
+      return Promise.resolve(
+        calls === 1
+          ? new Response(
+              new ReadableStream({
+                cancel: () =>
+                  new Promise<void>(() => {
+                    /* deliberately stalled */
+                  }),
+              }),
+              {
+                status: 429,
+                headers: { 'Retry-After': '999999999999999999999999' },
+              }
+            )
+          : okLikesResponse()
+      )
+    })
+
+    assert.deepEqual(await Bluesky.getUserLikes('example'), {
+      records: [],
+      cursor: '',
+    })
+    assert.equal(calls, 2)
+    assert.ok(delays.includes(5000))
+  }
+)
