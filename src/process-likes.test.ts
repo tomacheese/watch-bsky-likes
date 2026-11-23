@@ -114,8 +114,8 @@ registerTest(
   'records posts as notified without sending on the first run',
   async (t) => {
     const calls: string[] = []
-    t.mock.method(Notified, 'addNotified', (uri: string) => {
-      calls.push(`add:${uri}`)
+    t.mock.method(Notified, 'saveBaseline', (uris: string[]) => {
+      calls.push(...uris.map((uri) => `add:${uri}`))
     })
     const sender = {
       sendMessage: (message: string) => {
