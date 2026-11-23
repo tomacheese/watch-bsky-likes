@@ -76,11 +76,14 @@ pnpm test
 ## Docker
 
 The container runs `pnpm start` every 10 minutes.
+Mount the data directory at `/data` to persist the configuration, notification history, and post cache across container replacements. If you previously mounted it at `/app/data`, use the same host directory with the new mount target.
 
 ```bash
 docker build -t watch-bsky-likes .
-docker run -v $(pwd)/data:/app/data watch-bsky-likes
+docker run -v "$(pwd)/data:/data" watch-bsky-likes
 ```
+
+To test state persistence across container replacements with synthetic data, run `sh tests/docker-volume.sh watch-bsky-likes` after building the image.
 
 ## License
 

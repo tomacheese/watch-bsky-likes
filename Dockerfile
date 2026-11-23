@@ -26,6 +26,8 @@ RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --frozen-lockfile
 
 ENV NODE_ENV=production
 ENV CONFIG_PATH=/data/config.json
+ENV NOTIFIED_FILE=/data/notified.json
+ENV POST_CACHE_PATH=/data/post_cache
 
 COPY entrypoint.sh .
 RUN chmod +x entrypoint.sh
