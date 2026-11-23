@@ -27,11 +27,11 @@ async function main() {
     return !Notified.isNotified(uri)
   })
 
-  const postDetails = await Bluesky.getPosts(
+  const { posts, unresolvedUris } = await Bluesky.getPosts(
     filteredResults.map((r) => r.value.subject.uri)
   )
 
-  await processLikes(filteredResults, postDetails, discord, isFirst)
+  await processLikes(filteredResults, posts, discord, isFirst, unresolvedUris)
 }
 
 ;(async () => {

@@ -16,12 +16,14 @@ export interface MessageSender {
  * @param postDetails Post details
  * @param discord Destination for notifications
  * @param isFirst Whether this is the first run. On the first run nothing is sent and posts are only recorded as notified
+ * @param unresolvedUris Post URIs whose details could not be validated
  */
 export async function processLikes(
   records: Like[],
   postDetails: Post[],
   discord: MessageSender,
-  isFirst: boolean
+  isFirst: boolean,
+  unresolvedUris: ReadonlySet<string> = new Set()
 ): Promise<void> {
   for (const record of records) {
     const { uri } = record.value.subject
@@ -35,6 +37,9 @@ export async function processLikes(
     console.log(`liked your post: ${postUrl} at ${createdAt}`)
 
     const postDetail = postDetails.find((p) => p.uri === uri)
+    if (!postDetail && unresolvedUris.has(uri)) {
+      continue
+    }
     if (!postDetail) {
       console.log(`  -> Skip because postDetail is undefined`)
       Notified.addNotified(uri)

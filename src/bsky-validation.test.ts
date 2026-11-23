@@ -89,7 +89,7 @@ registerTest('re-fetches and overwrites an invalid cache entry', async (t) => {
     return Promise.resolve(Response.json({ posts: [validPost(URI, IMAGES)] }))
   })
 
-  const posts = await Bluesky.getPosts([URI])
+  const { posts } = await Bluesky.getPosts([URI])
   assert.deepEqual(posts, [validPost(URI, IMAGES)])
   assert.equal(calls, 1)
   assert.deepEqual(
@@ -112,7 +112,8 @@ registerTest('drops and does not cache a malformed API entry', async (t) => {
     )
   )
 
-  const posts = await Bluesky.getPosts([URI_BAD], false)
+  const { posts, unresolvedUris } = await Bluesky.getPosts([URI_BAD], false)
+  assert.equal(unresolvedUris.has(URI_BAD), true)
   assert.deepEqual(posts, [validPost('at://did:plc:abc/app.bsky.feed.post/ok')])
   assert.equal(fs.existsSync(cacheFile('bad')), false)
   assert.equal(warn.mock.callCount(), 2)

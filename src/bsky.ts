@@ -358,6 +358,7 @@ export class Bluesky {
 
   public static async getPosts(uris: string[], useCache = true) {
     const posts: Post[] = []
+    const unresolvedUris = new Set<string>()
     const uncachedUris: string[] = []
 
     for (const uri of uris) {
@@ -396,12 +397,18 @@ export class Bluesky {
           )
         }
 
+        let hasUnidentifiedEntry = false
         for (const entry of response.posts as unknown[]) {
           if (!Bluesky.isPost(entry)) {
             const uri =
               typeof entry === 'object' && entry !== null && 'uri' in entry
                 ? entry.uri
                 : undefined
+            if (typeof uri === 'string' && chunk.includes(uri)) {
+              unresolvedUris.add(uri)
+            } else {
+              hasUnidentifiedEntry = true
+            }
             console.warn(
               '⚠️ Skip malformed post in getPostsFromApi',
               ...(typeof uri === 'string' ? [uri] : [])
@@ -412,10 +419,13 @@ export class Bluesky {
           posts.push(entry)
           BlueskyPostCache.setPost(entry.uri, entry)
         }
+        if (hasUnidentifiedEntry) {
+          for (const uri of chunk) unresolvedUris.add(uri)
+        }
       }
     }
 
-    return posts
+    return { posts, unresolvedUris }
   }
 
   private static async getPostsFromApi(uris: string[]): Promise<unknown> {
